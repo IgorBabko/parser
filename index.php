@@ -7,6 +7,6 @@ $parser = new Parser\Parser('http://www.ralphlauren.com');
 $parser
     ->scrapeCategories()
     ->scrapeProducts()
-    ->scrapeProducts();
+    ->scrapeProduct();
 
 $parser->printResult();

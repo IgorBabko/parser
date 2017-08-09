@@ -29,11 +29,11 @@ class Parser
         dump($this->categories);
 
         echo '<h1>Products</h1>';
-        echo "<p><a href='{$this->subChildCategoryLink}'>Category link</a></p>";
+        echo "<p><a href='{$this->subChildCategoryLink}' target='_blank'>Category link</a></p>";
         dump($this->products);
 
         echo '<h1>Product</h1>';
-        echo "<h4><a href='{$this->productLink}'>Product link</a></h4>";
+        echo "<h4><a href='{$this->productLink}' target='_blank'>Product link</a></h4>";
         dump($this->product);
     }
 
@@ -41,31 +41,7 @@ class Parser
     {
         $dom = $this->getHtml($this->domain);
 
-        foreach($dom->find('.top-nav') as $parentCategoryNode) {
-
-            $parentCategory['name'] = $parentCategoryNode->find('span')[0]->innertext;
-            $parentCategory['link'] = $parentCategoryNode->href;
-            $parentCategory['childCategories'] = [];
-
-            $parentCategoryDom = $this->getHtml($this->domain . $parentCategoryNode->href);
-
-            $childCategory['name'] = null;
-            foreach ($parentCategoryDom->find('#left-nav .nav > *') as $childCategoryNode) {
-                if ($childCategoryNode->class != 'nav-items') {
-                    $childCategory['name'] = $childCategoryNode->innertext;
-                } else {
-                    $childCategory['subChildCategories'] = [];
-                    foreach ($childCategoryNode->find('a') as $subcategory) {
-                        $childCategory['subChildCategories'][] = [
-                            'name' => $subcategory->innertext,
-                            'link' => $subcategory->href
-                        ];
-                    }
-                    $parentCategory['childCategories'][] = $childCategory;
-                }
-            }
-            $this->categories[] = $parentCategory;
-        }
+        $this->categories = $this->buildParentCategories($dom);
 
         return $this;
     }
@@ -92,6 +68,58 @@ class Parser
         return $this;
     }
 
+    protected function buildParentCategories($dom)
+    {
+        $parentCategories = [];
+
+        foreach ($dom->find('.top-nav') as $parentCategoryNode) {
+            $parentCategories[] = $this->buildParentCategory($parentCategoryNode);
+        }
+
+        return $parentCategories;
+    }
+
+    protected function buildParentCategory($parentCategoryNode)
+    {
+        $parentCategory['name'] = $parentCategoryNode->find('span')[0]->innertext;
+        $parentCategory['link'] = $parentCategoryNode->href;
+        $parentCategory['childCategories'] = [];
+
+        $parentCategoryDom = $this->getHtml($this->domain . $parentCategoryNode->href);
+
+        $parentCategory['childCategories'] = $this->buildChildCategories($parentCategoryDom);
+
+        return $parentCategory;
+    }
+
+    protected function buildChildCategories($parentCategoryDom)
+    {
+        $childCategories = [];
+        $childCategory = null;
+
+        foreach ($parentCategoryDom->find('#left-nav .nav > *') as $childCategoryNode) {
+            if ($childCategoryNode->class != 'nav-items') {
+                $childCategory['name'] = $childCategoryNode->innertext;
+            } else {
+                $childCategory['subChildCategories'] = $this->buildSubChildCategories($childCategoryNode);
+                $childCategories[] = $childCategory;
+            }
+        }
+
+        return $childCategories;
+    }
+
+    protected function buildSubChildCategories($childCategoryNode)
+    {
+        $subChildCategories = [];
+
+        foreach ($childCategoryNode->find('a') as $subChildCategory) {
+            $subChildCategories[] = $this->buildSubChildCategory($subChildCategory);
+        }
+
+        return $subChildCategories;
+    }
+
     protected function buildProducts($dom)
     {
         $products = [];
@@ -112,9 +140,12 @@ class Parser
         return $products;
     }
 
-    protected function getHtml($url)
+    protected function buildSubChildCategory($subChildCategory)
     {
-        return HtmlDomParser::file_get_html($url, false, null, 0);
+        return [
+            'name' => $subChildCategory->innertext,
+            'link' => $subChildCategory->href
+        ];
     }
 
     protected function buildProduct($productNode)
@@ -135,6 +166,11 @@ class Parser
             'brand' => $dom->find('.prod-brand-logo img')[0]->alt,
             'images' => $this->getImageUrls($dom)
         ];
+    }
+
+    protected function getHtml($url)
+    {
+        return HtmlDomParser::file_get_html($url, false, null, 0);
     }
 
     protected function getImageUrls($productPage)
