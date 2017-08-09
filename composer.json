@@ -1,6 +1,12 @@
 {
     "require": {
         "sunra/php-simple-html-dom-parser": "^1.5",
-        "curl/curl": "^1.7"
+        "curl/curl": "^1.7",
+        "symfony/var-dumper": "^3.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Parser\\": "src/"
+        }
     }
 }
